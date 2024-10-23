@@ -53,7 +53,7 @@ jobs:
           wget $IMAGEBUILDER_URL -O imagebuilder.tar.xz
           tar -xf imagebuilder.tar.xz
           cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic.Linux-x86_64
-          apt-get install subversion build-essential libncurses5-dev zlib1g-dev gawk git ccache gettext libssl-dev xsltproc wget
+          sudo apt-get install subversion build-essential libncurses5-dev zlib1g-dev gawk git ccache gettext libssl-dev xsltproc wget
           make info
 
       # Step 5: Build custom OpenWrt image using the specified profile and packages
