@@ -60,6 +60,7 @@ jobs:
       - name: Build custom OpenWrt image
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
+          ls
           make image PROFILE=${{ env.PROFILE }} \
           PACKAGES="${{ env.PACKAGES }}"
 
