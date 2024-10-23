@@ -12,7 +12,7 @@ jobs:
     env:
       TARGET: bcm53xx
       PROFILE: dlink_dir-885l  # Set your device profile here
-      TITLE: "D-LINK DIR-895L"  # Add a descriptive title
+      TITLE: "DLINK_DIR-895L"  # Add a descriptive title
       PACKAGES: "nano wget git kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-rndis luci luci-ssl mwan3 luci-app-mwan3"  # List your desired packages
 
     steps:
@@ -66,7 +66,7 @@ jobs:
       - name: Rename firmware to reflect target, profile, and version
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          mv bin/targets/${{ env.TARGET }}/generic/openwrt-${{ env.TARGET }}-generic-squashfs.bin openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.PROFILE }}-${{ env.TITLE }}.bin
+          mv bin/targets/${{ env.TARGET }}/generic/openwrt-${{ env.TARGET }}-generic-squashfs.bin openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.TITLE }}.bin
 
       # Step 7: Create GitHub Release and Upload Firmware
       - name: Create GitHub Release and Upload Firmware
