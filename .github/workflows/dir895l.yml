@@ -9,16 +9,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      # Step 1: Set TARGET, PACKAGES, PROFILE, TITLE as environment variables
-      - name: Set build variables from config
-        run: |
-          echo "TARGET=$(cat ./config/TARGET)" >> $GITHUB_ENV
-          echo "PACKAGES=$(cat ./config/PACKAGES)" >> $GITHUB_ENV
-          echo "PROFILE=$(cat ./config/PROFILE)" >> $GITHUB_ENV
-          echo "TITLE=$(cat ./config/TITLE)" >> $GITHUB_ENV
+    env:
+      TARGET: bcm53xx
+      PROFILE: "dlink_dir-885l"  # Set your device profile here
+      TITLE: "D-LINK DIR-895L"  # Add a descriptive title
+      PACKAGES: "nano wget git kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-rndis luci luci-ssl mwan3 luci-app-mwan3"  # List your desired packages
 
-      # Step 2: Fetch the latest stable OpenWrt version
+    steps:
+      # Step 1: Fetch the latest stable OpenWrt version
       - name: Fetch latest stable OpenWrt version
         id: openwrt_version
         run: |
@@ -26,26 +24,27 @@ jobs:
           STABLE_RELEASE=$(curl -s $BASE_URL | grep -Eo '([0-9]+\.[0-9]+\.[0-9]+/)' | grep -vE '-rc|faillogs|packages' | sort -rV | head -n 1 | tr -d '/')
           echo "LATEST_OPENWRT_VERSION=${STABLE_RELEASE}" >> $GITHUB_ENV
 
-      # Step 3: Check if release for the current OpenWrt version already exists
+      # Step 2: Check if release for the current OpenWrt version already exists
       - name: Check if release exists
         id: check_release
         run: |
-          TAG_NAME="${{ env.LATEST_OPENWRT_VERSION }}"
+          TAG_NAME="${{ env.LATEST_OPENWRT_VERSION }}"  # Use version as tag name
           EXISTING_RELEASE=$(curl -s https://api.github.com/repos/<your-github-repo>/releases | jq -r --arg tag "$TAG_NAME" '.[] | select(.tag_name == $tag)')
           if [ -z "$EXISTING_RELEASE" ]; then
             echo "RELEASE_ALREADY_EXISTS=false" >> $GITHUB_ENV
+            echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_ENV
           else
             echo "RELEASE_ALREADY_EXISTS=true" >> $GITHUB_ENV
           fi
 
-      # Step 4: Skip build if release already exists
+      # Step 3: Skip build if release already exists
       - name: Skip if release exists
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'true' }}
         run: |
-          echo "Skipping build because release titled ${{ env.LATEST_OPENWRT_VERSION }} already exists."
+          echo "Skipping build because release titled ${{ env.TAG_NAME }} already exists."
           exit 0
 
-      # Step 5: Download the latest OpenWrt ImageBuilder
+      # Step 4: Download the latest OpenWrt ImageBuilder for the specified target
       - name: Download OpenWrt ImageBuilder
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
@@ -55,35 +54,31 @@ jobs:
           tar -xf imagebuilder.tar.xz
           cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic.Linux-x86_64
 
-      # Step 6: Build custom OpenWrt image
+      # Step 5: Build custom OpenWrt image using the specified profile and packages
       - name: Build custom OpenWrt image
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
           make image PROFILE=${{ env.PROFILE }} PACKAGES="${{ env.PACKAGES }}"
 
-      # Step 7: Rename firmware to reflect target, profile, and version
+      # Step 6: Rename firmware to reflect target, profile, and version
       - name: Rename firmware to reflect target, profile, and version
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
           mv bin/targets/${{ env.TARGET }}/generic/openwrt-${{ env.TARGET }}-generic-squashfs.bin openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.PROFILE }}-${{ env.TITLE }}.bin
 
-      # Step 8: Create GitHub release and upload firmware
+      # Step 7: Create GitHub Release and Upload Firmware
       - name: Create GitHub Release and Upload Firmware
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ env.LATEST_OPENWRT_VERSION }}
-          release_name: "${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-${{ env.TITLE }}"
+          tag_name: ${{ env.LATEST_OPENWRT_VERSION }}  # Use the version as the tag
+          release_name: "${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-${{ env.TITLE }}"  # Dynamic release name
           files: openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.PROFILE }}-${{ env.TITLE }}.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # Step 9: Upload firmware as artifact (optional)
-      - name: Upload Firmware as Artifact
+      # Step 8: Cleanup
+      - name: Cleanup
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: openwrt-firmware
-          path: |
-            openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.PROFILE }}-${{ env.TITLE }}.bin
-            bin/packages/**/*.ipk
+        run: |
+          rm -rf imagebuilder.tar.xz openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic.Linux-x86_64
