@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Ensure all files are checked out
+
       # Step 1: Fetch the latest stable OpenWrt version
       - name: Fetch latest stable OpenWrt version
         id: openwrt_version
@@ -17,9 +22,28 @@ jobs:
           BASE_URL="https://downloads.openwrt.org/releases"
           STABLE_RELEASE=$(curl -s $BASE_URL | grep -Eo '([0-9]+\.[0-9]+\.[0-9]+/)' | grep -vE '-rc|faillogs|packages' | sort -rV | head -n 1 | tr -d '/')
           echo "LATEST_OPENWRT_VERSION=${STABLE_RELEASE}" >> $GITHUB_ENV
-          echo "Fetched the latest stable OpenWrt version: $STABLE_RELEASE"
 
-      # Step 2: Check if release for the current OpenWrt version already exists
+      # Step 2: Verify files in the config directory exist
+      - name: Verify config files exist
+        run: |
+          if [ ! -f ./config/TARGET ]; then
+            echo "Error: TARGET file not found in config directory."
+            exit 1
+          fi
+          if [ ! -f ./config/PROFILE ]; then
+            echo "Error: PROFILE file not found in config directory."
+            exit 1
+          fi
+          if [ ! -f ./config/PACKAGES ]; then
+            echo "Error: PACKAGES file not found in config directory."
+            exit 1
+          fi
+          if [ ! -f ./config/TITLE ]; then
+            echo "Error: TITLE file not found in config directory."
+            exit 1
+          fi
+
+      # Step 3: Check if release for the current OpenWrt version already exists
       - name: Check if release exists
         id: check_release
         run: |
@@ -32,58 +56,54 @@ jobs:
             echo "RELEASE_ALREADY_EXISTS=true" >> $GITHUB_ENV
           fi
 
-      # Step 3: Skip build if release already exists
+      # Step 4: Skip build if release already exists
       - name: Skip if release exists
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'true' }}
         run: |
           echo "Skipping build because release titled ${{ env.TAG_NAME }} already exists."
           exit 0
 
-      # Step 4: Download the latest OpenWrt ImageBuilder for the dynamic target
+      # Step 5: Download the latest OpenWrt ImageBuilder for the dynamic target
       - name: Download OpenWrt ImageBuilder
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          if [ ! -f ./TARGET ]; then
-            echo "Error: TARGET file not found. Ensure the file exists in the repository."
-            exit 1
-          fi
-
-          TARGET=$(cat ./TARGET)
+          TARGET=$(cat ./config/TARGET)
           IMAGEBUILDER_URL="https://downloads.openwrt.org/releases/${{ env.LATEST_OPENWRT_VERSION }}/targets/${TARGET}/generic/openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-generic.Linux-x86_64.tar.xz"
           echo "Downloading OpenWrt ImageBuilder from: $IMAGEBUILDER_URL"
           wget $IMAGEBUILDER_URL -O imagebuilder.tar.xz
           tar -xf imagebuilder.tar.xz
           cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-generic.Linux-x86_64
 
-      # Step 5: Build custom OpenWrt image using profile and packages from repo
+      # Step 6: Build custom OpenWrt image using profile and packages from config directory
       - name: Build custom OpenWrt image
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          PROFILE=$(cat ./PROFILE)
-          PACKAGES=$(cat ./PACKAGES)
+          TARGET=$(cat ./config/TARGET)
+          PROFILE=$(cat ./config/PROFILE)
+          PACKAGES=$(cat ./config/PACKAGES)
           make image PROFILE=${PROFILE} PACKAGES="${PACKAGES}"
 
-      # Step 6: Rename firmware to reflect target, profile, and version
+      # Step 7: Rename firmware to reflect target, profile, and version
       - name: Rename firmware to reflect target, profile, and version
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          TARGET=$(cat ./TARGET)
-          PROFILE=$(cat ./PROFILE)
-          TITLE=$(cat ./TITLE)
+          TARGET=$(cat ./config/TARGET)
+          PROFILE=$(cat ./config/PROFILE)
+          TITLE=$(cat ./config/TITLE)
           mv bin/targets/${TARGET}/generic/openwrt-${TARGET}-generic-squashfs.bin openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-generic-${PROFILE}-${TITLE}.bin
 
-      # Step 7: Create GitHub release and upload firmware
+      # Step 8: Create GitHub release and upload firmware
       - name: Create GitHub Release and Upload Firmware
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.LATEST_OPENWRT_VERSION }}  # Use only the version for tag
-          release_name: "${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-$(cat ./TITLE)"  # Dynamic release name with version, target, and title
+          release_name: "${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-$(cat ./config/TITLE)"  # Dynamic release name with version, target, and title
           files: openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-generic-${PROFILE}-${TITLE}.bin
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
 
-      # Step 8: Upload firmware as artifact (optional)
+      # Step 9: Upload firmware as artifact (optional)
       - name: Upload Firmware as Artifact
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         uses: actions/upload-artifact@v3
