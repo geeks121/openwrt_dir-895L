@@ -14,6 +14,7 @@ jobs:
       PROFILE: dlink_dir-885l  # Set your device profile here
       TITLE: "DLINK_DIR-895L"  # Add a descriptive title
       PACKAGES: "nano wget git kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-rndis luci luci-ssl mwan3 luci-app-mwan3"  # List your desired packages
+      GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}  # or GH_TOKEN if using a custom token
 
     steps:
       # Step 1: Fetch the latest stable OpenWrt version
