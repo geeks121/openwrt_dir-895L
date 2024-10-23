@@ -42,8 +42,8 @@ jobs:
       - name: Download OpenWrt ImageBuilder
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          TARGET=$(cat ../../TARGET)
-          IMAGEBUILDER_URL="https://downloads.openwrt.org/releases/${{ env.LATEST_OPENWRT_VERSION }}/targets/${TARGET}/generic/openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}.Linux-x86_64.tar.xz"
+          TARGET=$(cat ./TARGET)  # Correct the path to the TARGET file
+          IMAGEBUILDER_URL="https://downloads.openwrt.org/releases/${{ env.LATEST_OPENWRT_VERSION }}/targets/${TARGET}/generic/openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}-generic.Linux-x86_64.tar.xz"
           wget $IMAGEBUILDER_URL -O imagebuilder.tar.xz
           tar -xf imagebuilder.tar.xz
           cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${TARGET}.Linux-x86_64
