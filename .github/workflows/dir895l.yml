@@ -53,13 +53,15 @@ jobs:
           wget $IMAGEBUILDER_URL -O imagebuilder.tar.xz
           tar -xf imagebuilder.tar.xz
           cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic.Linux-x86_64
+          apt-get install subversion build-essential libncurses5-dev zlib1g-dev gawk git ccache gettext libssl-dev xsltproc wget
           make info
 
       # Step 5: Build custom OpenWrt image using the specified profile and packages
       - name: Build custom OpenWrt image
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          make image PROFILE=${{ env.PROFILE }} PACKAGES="${{ env.PACKAGES }}"
+          make image PROFILE=${{ env.PROFILE }} \
+          PACKAGES="${{ env.PACKAGES }}"
 
       # Step 6: Rename firmware to reflect target, profile, and version
       - name: Rename firmware to reflect target, profile, and version
