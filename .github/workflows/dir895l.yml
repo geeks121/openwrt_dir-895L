@@ -66,6 +66,7 @@ jobs:
       - name: Rename firmware to reflect target, profile, and version
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
+          cd openwrt-imagebuilder-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic.Linux-x86_64
           mv bin/targets/${{ env.TARGET }}/generic/openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.PROFILE }}-squashfs.bin openwrt-${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-generic-${{ env.TITLE }}.bin
 
       # Step 7: Create GitHub Release and Upload Firmware
