@@ -1,0 +1,100 @@
+name: Scheduled OpenWrt Build for D-Link DIR-895L
+
+on:
+  schedule:
+    - cron: '0 0 */14 * *'  # Run every 2 weeks (midnight, every 14 days)
+  workflow_dispatch:  # Allow manual trigger from GitHub Actions UI
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Fetch the latest OpenWrt release version
+      - name: Get latest OpenWrt release
+        id: openwrt_version
+        run: |
+          # Fetch the latest release version from OpenWrt's GitHub repository
+          LATEST_OPENWRT_VERSION=$(curl -s https://api.github.com/repos/openwrt/openwrt/releases/latest | jq -r '.tag_name')
+          echo "LATEST_OPENWRT_VERSION=${LATEST_OPENWRT_VERSION}" >> $GITHUB_ENV
+
+      # Step 2: Check if the release already exists in our repository
+      - name: Check if release exists
+        id: check_release
+        run: |
+          # Check if a release for DIR-895L with this OpenWrt version already exists
+          EXISTING_RELEASE=$(curl -s https://api.github.com/repos/<your-github-repo>/releases | jq -r --arg version "${LATEST_OPENWRT_VERSION}" '.[] | select(.tag_name == "\($version)-DIR-895L")')
+          if [ -z "$EXISTING_RELEASE" ]; then
+            echo "RELEASE_ALREADY_EXISTS=false" >> $GITHUB_ENV
+          else
+            echo "RELEASE_ALREADY_EXISTS=true" >> $GITHUB_ENV
+          fi
+
+      # Step 3: Skip the build if release already exists
+      - name: Skip if release exists
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'true' }}
+        run: |
+          echo "Skipping build because release for DIR-895L already exists for version ${{ env.LATEST_OPENWRT_VERSION }}."
+          exit 0
+
+      # Step 4: Set up the OpenWrt build environment (only runs if the release doesn't exist)
+      - name: Set up OpenWrt build environment
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3
+
+      # Step 5: Clone the OpenWrt source code
+      - name: Clone OpenWrt source
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        run: |
+          git clone https://github.com/openwrt/openwrt.git
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      # Step 6: Copy custom .config (optional)
+      - name: Copy custom .config
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        run: |
+          cp ../.config openwrt/.config  # Optional: Copy your custom OpenWrt config file
+          cd openwrt
+          make defconfig  # Ensure default config is set if no custom config is provided
+
+      # Step 7: Build OpenWrt image for bcm53xx target and dlink_dir-885l profile
+      - name: Build OpenWrt image for bcm53xx (D-Link DIR-885L)
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        run: |
+          cd openwrt
+          make image PROFILE=dlink_dir-885l \
+            PACKAGES="nano wget git kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm kmod-usb-net-rndis kmod-usb-net-cdc-ncm kmod-usb-net-huawei-cdc-ncm luci luci-ssl mwan3 luci-app-mwan3" \
+            TARGET=bcm53xx
+
+      # Step 8: Rename the firmware file for D-Link DIR-895L with versioning
+      - name: Rename firmware to reflect DIR-895L with version
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        run: |
+          cd openwrt/bin/targets/bcm53xx/dlink_dir-885l
+          mv openwrt-bcm53xx-dlink_dir-885l-squashfs.bin openwrt-bcm53xx-dlink_dir-895l-squashfs-${{ env.LATEST_OPENWRT_VERSION }}.bin
+
+      # Step 9: Create a GitHub release and upload the firmware
+      - name: Create Release and Upload Firmware
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.LATEST_OPENWRT_VERSION }}-DIR-895L
+          release_name: OpenWrt ${{ env.LATEST_OPENWRT_VERSION }} for DIR-895L
+          files: openwrt/bin/targets/bcm53xx/dlink_dir-885l/openwrt-bcm53xx-dlink_dir-895l-squashfs-${{ env.LATEST_OPENWRT_VERSION }}.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Step 10: Upload the firmware as artifacts for further use (optional)
+      - name: Upload firmware artifacts
+        if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: openwrt-firmware
+          path: |
+            openwrt/bin/targets/bcm53xx/dlink_dir-885l/openwrt-bcm53xx-dlink_dir-895l-squashfs-${{ env.LATEST_OPENWRT_VERSION }}.bin
+            openwrt/bin/packages/**/*.ipk
