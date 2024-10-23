@@ -60,9 +60,9 @@ jobs:
       - name: Build custom OpenWrt image
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
         run: |
-          ls
-          make image PROFILE=${{ env.PROFILE }} \
-          PACKAGES="${{ env.PACKAGES }}"
+          ls -a
+          #make image PROFILE=${{ env.PROFILE }} \
+          #PACKAGES="${{ env.PACKAGES }}"
 
       # Step 6: Rename firmware to reflect target, profile, and version
       - name: Rename firmware to reflect target, profile, and version
