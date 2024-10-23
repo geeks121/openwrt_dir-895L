@@ -73,7 +73,7 @@ jobs:
       # Step 7: Create GitHub Release and Upload Firmware
       - name: Create GitHub Release and Upload Firmware
         if: ${{ env.RELEASE_ALREADY_EXISTS == 'false' }}
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.LATEST_OPENWRT_VERSION }}  # Use the version as the tag
           name: "${{ env.LATEST_OPENWRT_VERSION }}-${{ env.TARGET }}-${{ env.TITLE }}"  # Dynamic release name
